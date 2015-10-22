@@ -1,0 +1,86 @@
+import Optim.optimize
+
+export frank_wolfe, FrankWolfeParams
+
+type FrankWolfeParams<:OptParams
+	maxiters::Int
+	abstol::AbstractFloat
+	stepsize::StepSizeRule
+end
+stop(p::FrankWolfeParams, eps) = eps < p.abstol ? true : false
+FrankWolfeParams() = FrankWolfeParams(50, 1e-10, DecreasingStepSize(2,1))
+
+function frank_wolfe(x, # starting point
+	delta::AbstractFloat, # bound on constraint function
+	objective, grad_objective,
+	constraint, # evaluates constraint
+	min_lin_st_constraint, # solves min_{c(x)<=delta} g \dot x (as a function of delta and g)
+	params::FrankWolfeParams = FrankWolfeParams();
+	verbose = false,
+	B = -Inf) # stopping condition
+	
+	# initialize
+	objval = objective(x)
+	if verbose
+		@printf("%10s%12s%12s\n", "iter", "obj", "constr")	
+		@printf("%10d%12.4e%12.4e\n", 0, objval, constraint(x))
+	end
+
+	for k=1:params.maxiters
+		g = grad_objective(x)
+		
+		# step 1
+		# tilde_x is solution to min_{c(theta)<=delta} grad(theta_old) \dot theta
+		tilde_x = min_lin_st_constraint(g, delta)
+		
+		# step 2
+		
+		# x is solution to minimize_alpha o(a*x_old + (1-a)*tilde_x)
+		# f(a) = objective((1-a)*x + a*tilde_x)
+		# g!(a,g) = (g[1] = dot(grad_objective((1-a)*x + a*tilde_x), - x + tilde_x); g)
+		# a = optimize(f, g!, [.5], method = :l_bfgs)x, x_old = , x
+		
+		# fixed stepsize
+		a = step(params.stepsize)
+
+		# bisection
+		# f(a) = dot(grad_objective((1-a)*x + a*tilde_x), tilde_x - x)
+		# a = zero(f, 0, 1/sqrt(k), tol=1e-2, maxiters=10)
+
+		x_old = copy(x)
+		x = (1-a)*x + a*tilde_x
+		# the following line segfaults:
+		# x, x_old = (1-a)*x + a*tilde_x, x
+		objval, objval_old = objective(x), objval
+		cx = constraint(x)
+		if verbose && k%1==0
+			@printf("%10d%12.4e%12.4e\n", k, objval, cx)
+		end
+
+		# stopping condition
+		tilde_B = objval_old + dot(g, tilde_x - x_old)
+		B = max(B, tilde_B)
+		stop(params, objval - B) && break
+	end
+	return x
+end
+
+# find a zero of f over [a, b]
+function zero(f, a, b; tol=1e-9, maxiters=1000)
+    f(a) < 0 || return a
+    f(b) > 0 || return b
+    for i=1:maxiters
+        mid = a + (b-a)/2
+        fmid = f(mid)
+        if abs(fmid) < tol
+            return mid
+        end
+        if f(mid) < 0
+            a = mid
+        else
+            b = mid
+        end
+    end
+    warn("hit maximum iterations in bisection search")
+    return (b-a)/2
+end
