@@ -52,38 +52,66 @@ lambda = 0 #32 * sqrt(K*d*log(d)/m/n/nobs)
 objective = U -> (negloglik(U, data) + lambda*nucnorm(U))
 grad_objective = U -> (grad_negloglik(U, data) + lambda * grad_nucnorm(U))
 
-println("Fitting a rank $k MNL model with $m rows and $n columns to $nobs observations with choice sets of size $K
-	using regularization parameter $lambda")
-
 stop(p::SimpleParams, objval, oldobjval, args...; kwargs...) = false
 
 ## Frank Wolfe
+if false
+	println("Fitting a rank $k MNL model with $m rows and $n columns to $nobs observations with choice sets of size $K
+	using Frank Wolfe")
+	println("nucnorm(Theta) = ", nucnorm(Theta))
+	println("negloglik(Theta) = ", negloglik(Theta, data))
 
-println("nucnorm(Theta) = ", nucnorm(Theta))
-println("negloglik(Theta) = ", negloglik(Theta, data))
+	t = zeros(m,n)
+	ThetaHat = copy(t)
+	@printf("%12s%12s%12s%12s\n", "obj", "delta", "constr", "rel rmse")	
+	nt = nucnorm(Theta)
+	for delta=nt:round(Int, nt/10):nt*2
+		# saturate constraint
+		if delta > 0 && nucnorm(ThetaHat) > .01
+			t = copy(ThetaHat)
+			t *= delta/nucnorm(ThetaHat)
+		end
+		ThetaHat = frank_wolfe(t, delta,
+				x->negloglik(x, data), 
+				x->grad_negloglik(x, data), 
+				nucnorm, min_lin_st_nucnorm, 
+				FrankWolfeParams(100, 1e-6),
+				verbose=false)
 
-t = zeros(m,n)
-ThetaHat = copy(t)
-@printf("%12s%12s%12s%12s\n", "obj", "delta", "constr", "rel rmse")	
-nt = nucnorm(Theta)
-for delta=nt:round(Int, nt/10):nt*2
-	# saturate constraint
-	if delta > 0 && nucnorm(ThetaHat) > .01
-		t = copy(ThetaHat)
-		t *= delta/nucnorm(ThetaHat)
+		relrmse(xhat, x) = vecnorm(xhat - x) / vecnorm(x) # sqrt(mean((xhat - x).^2)) / sqrt(mean(x.^2))
+		ThetaHatZeroed = ThetaHat .- (ThetaHat * ones(n,1)/n) 
+		rmset = relrmse(ThetaHatZeroed, Theta)
+		@printf("%12.2e%12.2e%12.2e%12.2e\n", negloglik(ThetaHat, data), delta, nucnorm(ThetaHat), rmset)
 	end
-	ThetaHat = frank_wolfe(t, delta,
-			x->negloglik(x, data), 
-			x->grad_negloglik(x, data), 
-			nucnorm, min_lin_st_nucnorm, 
-			FrankWolfeParams(100, 1e-6),
-			verbose=false)
-
-	relrmse(xhat, x) = vecnorm(xhat - x) / vecnorm(x) # sqrt(mean((xhat - x).^2)) / sqrt(mean(x.^2))
-	ThetaHatZeroed = ThetaHat .- (ThetaHat * ones(n,1)/n) 
-	rmset = relrmse(ThetaHatZeroed, Theta)
-	@printf("%12.2e%12.2e%12.2e%12.2e\n", negloglik(ThetaHat, data), delta, nucnorm(ThetaHat), rmset)
 end
+
+## Prox grad
+if true
+	println("Fitting a rank $k MNL model with $m rows and $n columns to $nobs observations with choice sets of size $K
+	using the proximal gradient method")
+	println("nucnorm(Theta) = ", nucnorm(Theta))
+	println("negloglik(Theta) = ", negloglik(Theta, data))
+
+	ThetaHat = zeros(m,n)
+	@printf("%12s%12s%12s%12s%12s\n", "lambda", "loss", "reg", "obj", "rel rmse")	
+	nt = nucnorm(Theta)
+	for lambda=logspace(1,-4,6)
+		ThetaHat = prox_grad!(ThetaHat,
+				x->negloglik(x, data), 
+				x->grad_negloglik(x, data), 
+				x->lambda*nucnorm(x),
+				(x, alpha)->prox_nucnorm(x, alpha*lambda),
+				ProxGradParams(),
+				verbose=true)
+
+		relrmse(xhat, x) = vecnorm(xhat - x) / vecnorm(x) # sqrt(mean((xhat - x).^2)) / sqrt(mean(x.^2))
+		ThetaHatZeroed = ThetaHat .- (ThetaHat * ones(n,1)/n) 
+		rmset = relrmse(ThetaHatZeroed, Theta)
+		loss, reg = negloglik(ThetaHat, data), lambda*nucnorm(ThetaHat)
+		@printf("%12.2e%12.2e%12.2e%12.2e%12.2e\n", lambda, loss, reg, loss+reg, rmset)
+	end
+end
+
 # initialize
 # U = FactoredParam(randn(m+n, k), m, n)
 # U = initialize_dropping_convexity(grad_objective, zeros(m,n), k)

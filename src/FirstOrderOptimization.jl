@@ -14,6 +14,7 @@ include("MNL.jl")
 # algorithms
 
 include("algorithms/gradient_descent.jl")
+include("algorithms/prox_grad.jl")
 include("algorithms/PRISMA.jl")
 include("algorithms/frank_wolfe.jl")
 # etc

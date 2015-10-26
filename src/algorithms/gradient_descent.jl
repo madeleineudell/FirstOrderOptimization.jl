@@ -12,7 +12,7 @@ function gradient_descent!(x, # the initial value of the variable
 	@printf("%10d%12.4e\n", 0, objval)
 
 	for iter = 1:params.maxiters
-		@show curstep = step(params.stepsizerule, objective, x, grad; objval = objval)
+		curstep = step(params.stepsizerule, objective, x, grad; objval = objval)
 		x -= curstep*grad
 
 		grad = grad_objective(x)

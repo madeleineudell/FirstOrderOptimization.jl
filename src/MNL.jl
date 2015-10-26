@@ -2,7 +2,7 @@ import Base: factor, +, -, *, size
 
 export MNLdata,
 	negloglik, grad_negloglik,
-	nucnorm, grad_nucnorm, min_lin_st_nucnorm,
+	nucnorm, grad_nucnorm, min_lin_st_nucnorm, prox_nucnorm,
 	RectangularParam, FactoredParam, rectangular_part, factor,
 	initialize_dropping_convexity,
 	+, *, -, size
@@ -110,6 +110,11 @@ function grad_nucnorm(U::FactoredParam)
 	return U
 end
 
+# prox_nucnorm(U, alpha) solves minimize_X (1/2||X||^2 + 1/(2*alpha)||X-U||^2)
+function prox_nucnorm(U::FactoredParam, alpha::AbstractFloat)
+	return 1/(1+alpha)*U
+end
+
 function nucnorm(Theta::RectangularParam)
 	u,s,v = svd(Theta)
 	return sum(s)
@@ -118,6 +123,20 @@ end
 function grad_nucnorm(Theta::RectangularParam)
 	u,s,v = svd(Theta)
 	return u*spdiagm(sign(s))*v'
+end
+
+# prox_nucnorm(T, alpha) solves minimize_X (||X||_* + 1/(2*alpha)||X-T||^2)
+# via soft-thresholding the singular values
+function prox_nucnorm(Theta::RectangularParam, 
+	alpha::AbstractFloat;
+	k = 10, # k estimates the number of singular values that will be greater than alpha
+	kpp = 10) # how much to increment k if we're wrong
+	u,s,v = svd(Theta, k)
+	while s[end] > alpha
+		k += kpp
+		u,s,v = svd(Theta, k)
+	end
+	return u*spdiagm(max(s - alpha, 0))*v'
 end
 
 # solves min_{nucnorm(x)<=delta} G \dot x
