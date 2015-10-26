@@ -92,6 +92,8 @@ if true
 	println("nucnorm(Theta) = ", nucnorm(Theta))
 	println("negloglik(Theta) = ", negloglik(Theta, data))
 
+	@show gamma_u = 256*sqrt(K*k*(m+n)*log(m+n)/(m*n*nobs))
+
 	ThetaHat = zeros(m,n)
 	@printf("%12s%12s%12s%12s%12s\n", "lambda", "loss", "reg", "obj", "rel rmse")	
 	nt = nucnorm(Theta)
@@ -101,7 +103,7 @@ if true
 				x->grad_negloglik(x, data), 
 				x->lambda*nucnorm(x),
 				(x, alpha)->prox_nucnorm(x, alpha*lambda),
-				ProxGradParams(),
+				ProxGradParams(ConstantStepSize(gamma_u), 100),
 				verbose=true)
 
 		relrmse(xhat, x) = vecnorm(xhat - x) / vecnorm(x) # sqrt(mean((xhat - x).^2)) / sqrt(mean(x.^2))
