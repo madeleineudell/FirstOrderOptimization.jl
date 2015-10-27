@@ -113,7 +113,7 @@ if false
 end
 
 ## Factored prox grad
-if false
+if true
 	println("Fitting a rank $k MNL model with $m rows and $n columns to $nobs observations with choice sets of size $K
 	using factored gradient descent and varying the regularization")
 	println("nucnorm(Theta) = ", nucnorm(Theta))
@@ -136,7 +136,7 @@ if false
 				x->grad_negloglik(x, data), 
 				x->lambda*nucnorm(x),
 				(x, alpha)->prox_nucnorm(x, alpha*lambda),
-				ProxGradParams(ConstantStepSize(gamma_u), 100),
+				ProxGradParams(HopefulStepSize(), 100),
 				verbose=true)
 
 		ThetaHatZeroed = ThetaHat .- (ThetaHat * ones(n,1)/n) 
@@ -147,7 +147,7 @@ if false
 end
 
 ## Factored gradient descent
-if true
+if false
 	println("Fitting a rank $k MNL model with $m rows and $n columns to $nobs observations with choice sets of size $K
 	using factored gradient descent and varying the regularization")
 	@printf("%12s%12s%12s%12s%12s\n", "lambda", "loss", "reg", "obj", "rel rmse")	
