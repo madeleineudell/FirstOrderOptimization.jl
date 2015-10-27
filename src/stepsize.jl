@@ -60,7 +60,7 @@ function step(s::HopefulStepSize, objective::Function, x0, grad_x0;
 	stepsize = s.initial_stepsize
 	normgradsq = vecnorm(grad_x0)^2
 	while objective(x0 - stepsize*grad_x0) > objval - s.suff_decrease*stepsize*normgradsq
-		@show stepsize *= s.decrease_by
+		stepsize *= s.decrease_by
 	end
 	# hope and change!
 	if stepsize < s.initial_stepsize
@@ -68,7 +68,6 @@ function step(s::HopefulStepSize, objective::Function, x0, grad_x0;
 	else
 		s.initial_stepsize *= s.increase_by
 	end
-	@show objval, objective(x0), objective(x0 - stepsize*grad_x0)
 	return stepsize
 end
 HopefulStepSize() = HopefulStepSize(1.0, .8, 1.5, .1)

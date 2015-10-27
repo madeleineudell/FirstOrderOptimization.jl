@@ -6,11 +6,13 @@ function gradient_descent!(x, # the initial value of the variable
 	params::OptParams = SimpleParams(ConstantStepSize(1), 100);
 	verbose::Bool = false)
 
-	verbose && @printf("%10s%12s\n", "iter", "obj")
 	grad = grad_objective(x)
 	objval = objective(x)
-	@printf("%10d%12.4e\n", 0, objval)
-
+	if verbose
+		@printf("%10s%12s\n", "iter", "obj")
+		@printf("%10d%12.4e\n", 0, objval)
+	end
+	
 	for iter = 1:params.maxiters
 		curstep = step(params.stepsizerule, objective, x, grad; objval = objval)
 		x -= curstep*grad

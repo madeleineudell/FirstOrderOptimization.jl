@@ -176,6 +176,6 @@ function initialize_dropping_convexity(grad_objective, zeroparam, k::Int=0)
 		# Theta = u[:,1:k]*spdiagm(max(s[1:k],0))*v[:,1:k]'
 		U = [u[:,1:k]*spdiagm(sqrt(max(s[1:k],0))); 
 			 v[:,1:k]*spdiagm(sqrt(max(s[1:k],0)))]
-		return FactoredParam(U, size(zeroparam)...)
+		return FactoredParam(U / sqrt(normalization), size(zeroparam)...)
 	end
 end
