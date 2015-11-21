@@ -22,11 +22,12 @@ function prox_grad!(x, # the initial value of the variable
 	end
 
 	for iter = 1:params.maxiters
-		x, objval, oldobjval = step(params.stepsizerule,
-						             objective,
-						             take_step,
-						             x,
-						             objval), objval
+		oldobjval = copy(objval) 
+		x, objval = step(params.stepsizerule,
+			             objective,
+			             take_step,
+			             x,
+			             objval0 = objval)
 
 		verbose && iter%1==0 && @printf("%10d%12.4e\n", iter, objval)
 
@@ -46,12 +47,11 @@ ProxGradParams() = ProxGradParams(ConstantStepSize(.5), 100)
 
 function step(s::HopefulStepSize, objective::Function, take_step::Function, x0;
 	objval0 = objective(x0))
+	stepsize = s.initial_stepsize
 	x = take_step(x0, stepsize)
 	objval = objective(x)
-	stepsize = s.initial_stepsize
-	normgradsq = vecnorm(grad_x0)^2
-	while objval > objval0
-		stepsize *= s.decrease_by
+	while objval >= objval0
+		@show stepsize *= s.decrease_by
 		x = take_step(x0, stepsize)
 		objval = objective(x)
 	end

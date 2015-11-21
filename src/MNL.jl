@@ -1,11 +1,11 @@
-import Base: factor, +, -, *, size
+import Base: factor, +, -, *, size, copy
 
 export MNLdata,
 	negloglik, grad_negloglik,
 	nucnorm, grad_nucnorm, min_lin_st_nucnorm, prox_nucnorm,
 	RectangularParam, FactoredParam, rectangular_part, factor,
 	initialize_dropping_convexity,
-	+, *, -, size
+	+, *, -, size, copy
 
 ### Data
 
@@ -36,6 +36,7 @@ end
 top(x::FactoredParam) = x.asarray[1:x.nrow,:]
 bottom(x::FactoredParam) = x.asarray[x.nrow+1:x.nrow+x.ncol,:]
 rectangular_part(x::FactoredParam) = top(x)*bottom(x)'
+copy(x::FactoredParam) = FactoredParam(copy(x.asarray), x.nrow, x.ncol)
 function factor(Theta::RectangularParam; k = min(size(Theta)...))
 	m, n = size(Theta)
 	u,s,v = svd(Theta, k)

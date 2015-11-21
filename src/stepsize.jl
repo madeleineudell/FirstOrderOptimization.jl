@@ -71,3 +71,4 @@ function step(s::HopefulStepSize, objective::Function, x0, grad_x0;
 	return stepsize
 end
 HopefulStepSize() = HopefulStepSize(1.0, .8, 1.5, .1)
+HopefulStepSize(initial_stepsize) = HopefulStepSize(initial_stepsize, .8, 1.5, .1)
