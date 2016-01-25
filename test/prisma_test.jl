@@ -60,7 +60,7 @@ function generate_maxnorm_problem(m,n,lambda,k)
 	function prox_h(W, alpha=0; TOL=1e-10)
 		@show prevrank.r
 		while prevrank.r < size(W,1)
-			l,v = eig(Symmetric(W)) #, prevrank.r+1)
+			l,v = eigs(Symmetric(W), nev = prevrank.r+1, which=:LR)
 			if l[end] <= TOL
 				prevrank.r = sum(l.>=TOL)
 				return v*diagm(max(l,0))*v'
@@ -94,7 +94,7 @@ function test_prisma(m,n,lambda,k)
 	# beta = lambda/sqrt((m+n)^2*mean(A.^2))
 	beta   = lambda/sqrt(obj(W))
 	ssr    = PrismaStepsize(beta)
-	params = PrismaParams(ssr, 100, 1)
+	params = PrismaParams(ssr, 30, 1)
 
 	# recover
 	W = PRISMA(W, L_f,
