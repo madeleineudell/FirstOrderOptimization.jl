@@ -5,8 +5,6 @@ using FirstOrderOptimization
 # 	* obj converges to a nice low number
 # 	* i haven't checked it against an sdp solver yet
 # 	* or tested for recovery
-# * i coded a tentative closure solution to keep from computing all eigentuples
-# 	* but need to look up the name of the efficient eig decomp and put it in line 61
 # * it does a super weird thing where 
 # 	the rank and obj shoot up in the 14th iteration. why?
 
