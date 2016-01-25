@@ -1,28 +1,56 @@
-export PRISMA
+export PRISMA, PrismaParams, PrismaStepsize
 
 function PRISMA(x, # starting point
 				Lf, # Lipshitz constant of f
-				beta::StepSizeRule, # step sizes
 				grad_f,
 				prox_g,
 				prox_h,
-				params::OptParams)
+				obj,
+				params::OptParams=PrismaParams(PrismaStepsize(), 10))
 
 	# initialize
+	ssr      = params.stepsizerule
 	y        = copy(x)
 	xkpp     = copy(x)
-	betakpp  = step(beta)
-	Lkpp     = Lf + 1/betak
-	thetakpp = 1
+	betakpp  = step(ssr)
+	Lkpp     = Lf + 1/betakpp
+	thetak   = 1
+	thetakpp = 1 # XXX see orabona's code
+
+	if params.verbose > 0
+		@printf("%10s%12s\n", "iter", "obj")
+		@printf("%10d%12.4e\n", 0, obj(xkpp))
+	end
 
 	# iterate
 	for k=1:params.maxiters
-		betak, betakpp    = betakpp, step(beta)
+		betak, betakpp    = betakpp, step(ssr)
 		Lk, Lkpp          = Lkpp, Lf + 1/betakpp
 		thetak, thetakpp  = thetakpp, 2/(1+sqrt(1+4Lkpp/thetak^2/Lk))
 		xk, xkpp          = xkpp, prox_h((1-1/Lk/betak)*y - grad_f(y)/Lk + prox_g(y, betak)/Lk/betak, 1/Lk)
 		y                 = xkpp + thetakpp*(1/thetak - 1)*(xkpp - xk)                 
+		if params.verbose > 0
+			@printf("%10d%12.4e\n", k, obj(xkpp))
+		end
 	end
 
-	return x
+	return xkpp
+end
+
+type PrismaStepsize<:StepSizeRule
+	initial_stepsize::AbstractFloat
+	iteration_counter::Int
+end
+function step(s::PrismaStepsize, args...; kwargs...)
+	s.iteration_counter += 1
+	return s.initial_stepsize*s.iteration_counter
+end
+PrismaStepsize() = PrismaStepsize(1.0)
+PrismaStepsize(initial_stepsize) = PrismaStepsize(initial_stepsize, 0)
+stop(s::PrismaStepsize) = false	
+
+type PrismaParams<:OptParams
+	stepsizerule::StepSizeRule
+	maxiters::Int
+	verbose::Int
 end
