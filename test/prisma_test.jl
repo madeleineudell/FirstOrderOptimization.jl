@@ -34,7 +34,7 @@ function generate_maxnorm_problem(m,n,lambda,k)
 	X(W) = W[1:m, m+1:end]
 
 	function grad_f(W)
-		gX = 2*(P.*(X(W)-A))
+		gX = P.*(X(W)-A)
 		return [zeros(m,m) gX; gX' zeros(n,n)]
 	end
 
@@ -56,9 +56,9 @@ function generate_maxnorm_problem(m,n,lambda,k)
 	prevrank = PrevRank(k)
 
 	function prox_h(W, alpha=0; TOL=1e-10)
-		@show prevrank.r
+		# debugging: @show prevrank.r
 		while prevrank.r < size(W,1)
-			l,v = eigs(Symmetric(W), nev = prevrank.r+1, which=:LR)
+			l,v = eigs(Symmetric(W), nev = prevrank.r+1, which=:LR) # v0 = [v zeros(size(W,1), prevrank.r+1 - size(v,2))]
 			if l[end] <= TOL
 				prevrank.r = sum(l.>=TOL)
 				return v*diagm(max(l,0))*v'
@@ -75,7 +75,7 @@ function generate_maxnorm_problem(m,n,lambda,k)
 	# we're not going to bother checking whether W is psd or not
 	# when evaluating the objective; in the course of the prisma
 	# algo this makes no difference
-	obj(W) = vecnorm(P.*(X(W) - A))^2 + lambda*maximum(diag(W))
+	obj(W) = sum((P.*(X(W) - A)).^2) + lambda*maximum(diag(W))
 
 	return grad_f, prox_g, prox_h, obj
 end
@@ -92,7 +92,7 @@ function test_prisma(m,n,lambda,k)
 	# beta = lambda/sqrt((m+n)^2*mean(A.^2))
 	beta   = lambda/sqrt(obj(W))
 	ssr    = PrismaStepsize(beta)
-	params = PrismaParams(ssr, 30, 1)
+	params = PrismaParams(ssr, 10, 1)
 
 	# recover
 	W = PRISMA(W, L_f,
@@ -103,4 +103,4 @@ function test_prisma(m,n,lambda,k)
 		   params)
 end
 
-test_prisma(50,50,1,3)
+test_prisma(5,5,10,3)

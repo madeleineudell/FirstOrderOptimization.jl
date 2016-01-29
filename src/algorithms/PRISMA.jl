@@ -10,6 +10,10 @@ function PRISMA(x, # starting point
 
 	# initialize
 	ssr      = params.stepsizerule
+	if ssr.initial_stepsize == Inf
+		R = sqrt(obj(x)) # estimate of distance to solution
+		ssr.initial_stepsize = 2*R/Lf
+	end
 	y        = copy(x)
 	xkpp     = copy(x)
 	betakpp  = step(ssr)
@@ -32,6 +36,9 @@ function PRISMA(x, # starting point
 		if params.verbose > 0
 			@printf("%10d%12.4e\n", k, obj(xkpp))
 		end
+		if stop(params.stepsizerule, xk, xkpp)
+			break
+		end
 	end
 
 	return xkpp
@@ -43,11 +50,11 @@ type PrismaStepsize<:StepSizeRule
 end
 function step(s::PrismaStepsize, args...; kwargs...)
 	s.iteration_counter += 1
-	return s.initial_stepsize*s.iteration_counter
+	return s.initial_stepsize/(s.iteration_counter)
 end
-PrismaStepsize() = PrismaStepsize(1.0)
+PrismaStepsize() = PrismaStepsize(Inf)
 PrismaStepsize(initial_stepsize) = PrismaStepsize(initial_stepsize, 0)
-stop(s::PrismaStepsize) = false	
+stop(s::PrismaStepsize, xk, xkpp) = vecnorm(xk - xkpp)/vecnorm(xk) < 1e-5 ? true : false	
 
 type PrismaParams<:OptParams
 	stepsizerule::StepSizeRule
