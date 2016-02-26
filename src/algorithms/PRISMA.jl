@@ -27,7 +27,7 @@ function PRISMA(x, # starting point
 	end
 
 	# iterate
-	for k=1:params.maxiters
+	for k=1:params.maxiter
 		betak, betakpp    = betakpp, step(ssr)
 		Lk, Lkpp          = Lkpp, Lf + 1/betakpp
 		thetak, thetakpp  = thetakpp, 2/(1+sqrt(1+4Lkpp/thetak^2/Lk))
@@ -36,7 +36,7 @@ function PRISMA(x, # starting point
 		if params.verbose > 0
 			@printf("%10d%12.4e\n", k, obj(xkpp))
 		end
-		if stop(params.stepsizerule, xk, xkpp)
+		if stop(params, xk, xkpp)
 			break
 		end
 	end
@@ -54,10 +54,15 @@ function step(s::PrismaStepsize, args...; kwargs...)
 end
 PrismaStepsize() = PrismaStepsize(Inf)
 PrismaStepsize(initial_stepsize) = PrismaStepsize(initial_stepsize, 0)
-stop(s::PrismaStepsize, xk, xkpp) = vecnorm(xk - xkpp)/vecnorm(xk) < 1e-5 ? true : false	
 
 type PrismaParams<:OptParams
 	stepsizerule::StepSizeRule
-	maxiters::Int
+	maxiter::Int
 	verbose::Int
+	reltol::Float64
 end
+PrismaParams(;stepsize::StepSizeRule=PrismaStepsize(),
+	          maxiter::Int=100,
+	          verbose::Int=1,
+	          reltol::Float64=1e-5) = PrismaParams(stepsize,maxiter,verbose,reltol)
+stop(s::PrismaParams, xk, xkpp) = vecnorm(xk - xkpp)/vecnorm(xk) < s.reltol ? true : false	
