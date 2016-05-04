@@ -8,7 +8,8 @@ type FrankWolfeParams<:OptParams
 	stepsize::StepSizeRule
 end
 stop(p::FrankWolfeParams, eps) = eps < p.abstol ? true : false
-FrankWolfeParams() = FrankWolfeParams(50, 1e-10, DecreasingStepSize(2,1))
+FrankWolfeParams(;maxiters=50, abstol=1e-10, stepsize=DecreasingStepSize(2,1)) = 
+	FrankWolfeParams(maxiters, abstol, stepsize)
 
 function frank_wolfe(x, # starting point
 	delta::AbstractFloat, # bound on constraint function
