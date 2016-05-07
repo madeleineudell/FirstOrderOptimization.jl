@@ -51,23 +51,12 @@ function frank_wolfe_sketched(x::AbstractArray, # starting point
 			@printf("%10d%12.4e%12.4e%12.4e%12.4e\n", k, UB, LB, UB - LB, t - t0)
 		end
 		update_ch!(ch, t - old_t; obj = UB, dual_obj = LB)
-		stop(params, UB - LB) && break
+		stop(params, UB, LB) && break
 		t = time()
 
-		# choose stepsize
-		
-		# linesearch w/bfgs
-		# x is solution to minimize_alpha o(a*x_old + (1-a)*tilde_x)
-		# f(a) = objective((1-a)*x + a*tilde_x)
-		# g!(a,g) = (g[1] = dot(grad_objective((1-a)*x + a*tilde_x), - x + tilde_x); g)
-		# a = optimize(f, g!, [.5], method = :l_bfgs)
-
-		# linesearch w/bisection
-		# f(a) = dot(grad_objective((1-a)*x + a*tilde_x), tilde_x - x)
-		# a = zero(f, 0, 1/sqrt(k), tol=1e-2, maxiters=10)
-		
-		# predetermined stepsize
-		a = step(params.stepsize)
+		# choose step size with stepsize rule
+		# eg a = 1/k
+		a = step(params.stepsize, objective, x, tilde_x)
 
 		# take step
 		# x = (1-a)*x + a*tilde_x

@@ -82,7 +82,7 @@ end
 
 function AsymmetricSketch(m::Int, n::Int, r::Int)
 	k = 2r + 1
-	l = 4r + 3 # = 2k+1
+	l = 4r + 3 # == 2k+1
 	Omega = randn(n,k)
 	Psi   = randn(m,l)
 	Y     = zeros(m,k)

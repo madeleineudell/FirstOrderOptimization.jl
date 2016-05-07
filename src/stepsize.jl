@@ -32,6 +32,7 @@ DecreasingStepSize() = DecreasingStepSize(1.0)
 DecreasingStepSize(initial_stepsize) = DecreasingStepSize(initial_stepsize, 0)
 stop(s::DecreasingStepSize) = false
 
+# this stepsize starts out every iteration at initial_stepsize and backtracks until it finds sufficient decrease
 type BacktrackingStepSize<:StepSizeRule
 	initial_stepsize::Float64
 	decrease_by::Float64

@@ -5,11 +5,12 @@ export frank_wolfe, FrankWolfeParams
 type FrankWolfeParams<:OptParams
 	maxiters::Int
 	abstol::AbstractFloat
+	reltol::AbstractFloat
 	stepsize::StepSizeRule
 end
-stop(p::FrankWolfeParams, eps) = eps < p.abstol ? true : false
-FrankWolfeParams(;maxiters=50, abstol=1e-10, stepsize=DecreasingStepSize(2,1)) = 
-	FrankWolfeParams(maxiters, abstol, stepsize)
+stop(p::FrankWolfeParams, UB, LB) = (UB - LB < p.abstol) || ((UB - LB)/min(abs(LB), abs(UB)) < p.reltol) ? true : false
+FrankWolfeParams(;maxiters=50, abstol=1e-4, reltol=1e-2, stepsize=DecreasingStepSize(2,1)) = 
+	FrankWolfeParams(maxiters, abstol, reltol, stepsize)
 
 function frank_wolfe(x, # starting point
 	delta::AbstractFloat, # bound on constraint function
@@ -61,7 +62,7 @@ function frank_wolfe(x, # starting point
 		# stopping condition
 		tilde_B = objval_old + dot(g, tilde_x - x_old)
 		B = max(B, tilde_B)
-		stop(params, objval - B) && break
+		stop(params, objval, B) && break
 	end
 	return x
 end
