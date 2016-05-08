@@ -67,7 +67,7 @@ function reconstruct(s::SymmetricSketch)
 	d,V = eigs((B+B')/2, nev=s.r, which=:LM)
 	U = Q*V
 	d = pos(d)
-	return LowRankOperator(U, spdiagm(d), U') # reconstruction as square matrix is U*diagm(d)*U'
+	return LowRankOperator(U, spdiagm(d)*U') # reconstruction as square matrix is U*diagm(d)*U'
 end
 
 # Asymmetric
@@ -111,7 +111,7 @@ function reconstruct(s::AsymmetricSketch)
 	Q,_ = qr(s.Y)
 	B = s.W / (Q's.Psi) # Q's.Psi is k x l, its pinv is l x k, so B is n x k
 	U,s,V,_ = svds(B, nsv=s.r) # U is n x r
-	return LowRankOperator(Q*V, spdiagm(s), U') # reconstruction as square matrix is Q*V*diagm(s)*U'
+	return LowRankOperator(Q*V, spdiagm(s)*U') # reconstruction as square matrix is Q*V*diagm(s)*U'
 end
 # function reconstruct(s::AsymmetricSketch)
 # 	# Q = orth(s.Y)

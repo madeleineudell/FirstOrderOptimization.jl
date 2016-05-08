@@ -13,42 +13,47 @@ export frank_wolfe_sketched
 # stop(p::FrankWolfeParams, eps) = eps < p.abstol ? true : false
 # FrankWolfeParams() = FrankWolfeParams(50, 1e-10, DecreasingStepSize(2,1))
 
-function frank_wolfe_sketched(x::AbstractArray, # starting point
-	objective, grad_objective,
-	constraint, # evaluates constraint function
-	delta::Number, # bound on constraint function
-	min_lin_st_constraint, # solves min_{c(x)<=delta} g \dot x (as a function of delta and g)
+function frank_wolfe_sketched(z::AbstractArray, # starting point
+	objective::Function, 
+	grad_objective::Function,
+	constraint::Function, # evaluates constraint function
+	alpha::Number, # bound on constraint function
+	min_lin_st_constraint::Function, # solves min_{c(x)<=alpha} g \dot x (as a function of alpha and g)
 	sketch::AbstractSketch = IdentitySketch(x),
 	params::FrankWolfeParams = FrankWolfeParams(),
 	ch::ConvergenceHistory = ConvergenceHistory("fw_sketched");
-	dot_g_w_tx_minus_x = (g, tilde_x, x) -> dot(g, tilde_x - x),
-	update_var! = (x, tilde_x, a) -> (scale!(x, 1-a); axpy!(a, tilde_x, x)),
 	LB = -Inf,
 	UB = Inf,
 	verbose = false)
 	
 	# initialize
-	if verbose @printf("%10s%12s%12s%12s%12s\n", "iteration", "UB", "LB", "duality gap", "time") end
+	if verbose @printf("%10s%12s%12s%12s%12s%12s\n", "iteration", "UB", "LB", "gap", "rel gap", "time") end
 
 	t = time()
 	t0 = copy(t)
 	for k=1:params.maxiters
 
 		# function and gradient evaluation
-		objval = objective(x)
-		g = grad_objective(x)
-		
+		objval = objective(z)
+		G = grad_objective(z)
+		# G = A'*g, where g is the gradient wrt the compressed variable
+		# so G.factors[1] is the compression operator A
+		A = G.factors[1]
+		g = vec(G.factors[2])
+
 		# solve fenchel problem
-		# tilde_x is solution to min_{c(theta)<=delta} grad(theta_old) \dot theta
-		tilde_x = min_lin_st_constraint(g, delta)
-		
+		# Delta is solution to min_{c(X)<=alpha} grad(X_old) \dot X
+		Delta = min_lin_st_constraint(G, alpha)
+		dz = A*Delta
+
 		# check stopping condition
 		UB = min(UB, objval)
-		LB = max(LB, objval + dot_g_w_tx_minus_x(g, tilde_x, x))
+ 	   # <G, Delta - X> = <A'g, Delta - X> = <g, A*Delta - A*X> = <g, dz - z>
+		LB = max(LB, objval + dot(g, dz - z))
 		old_t, t = t, time()
 		if verbose && k%10==0
-			cx = constraint(x)
-			@printf("%10d%12.4e%12.4e%12.4e%12.4e\n", k, UB, LB, UB - LB, t - t0)
+			cx = constraint(z)
+			@printf("%10d%12.4e%12.4e%12.4e%12.4e%12.4e\n", k, UB, LB, UB - LB, (UB - LB)/min(abs(LB), abs(UB)), t - t0)
 		end
 		update_ch!(ch, t - old_t; obj = UB, dual_obj = LB)
 		stop(params, UB, LB) && break
@@ -56,13 +61,15 @@ function frank_wolfe_sketched(x::AbstractArray, # starting point
 
 		# choose step size with stepsize rule
 		# eg a = 1/k
-		a = step(params.stepsize, objective, x, tilde_x)
+		a = step(params.stepsize, objective, z, z-dz; 
+			     objval=objval, 
+			     normgradsq=UB-LB)
 
 		# take step
-		# x = (1-a)*x + a*tilde_x
-		update_var!(x, tilde_x, a)
+		# z = (1-a)*z + a*dz
+		scale!(z, 1-a); axpy!(a, dz, z)
 
-		cgd_update!(sketch, tilde_x, a)
+		cgd_update!(sketch, Delta, a)
 	end
 	return reconstruct(sketch)
 end

@@ -1,8 +1,8 @@
 ### operators
 
-import Base: size, *, Ac_mul_B, show, Array
+import Base: size, *, Ac_mul_B, show, Array, getindex
 
-export LowRankOperator, IndexingOperator, *, Ac_mul_B, size, show, Array
+export LowRankOperator, IndexingOperator, *, Ac_mul_B, size, show, Array, getindex
 
 
 abstract Operator{T} <: AbstractMatrix{T}
@@ -29,6 +29,8 @@ end
 function make_2d{T}(a::AbstractArray{T,1})
 	return reshape(a, (length(a), 1))
 end
+# not a deep copy
+copy(l::LowRankOperator) = LowRankOperator(copy(l.factors), copy(l.transpose))
 
 function *{T}(l::LowRankOperator{T}, x)
 	for i in length(l.factors):-1:1
@@ -36,6 +38,13 @@ function *{T}(l::LowRankOperator{T}, x)
 	end
 	return x
 end
+
+# function *{T}(x, l::LowRankOperator{T})
+# 	xl = copy(l)
+# 	unshift!(xl.factors, x)
+# 	unshift!(xl.transpose, :N)
+# 	return xl
+# end
 
 function Ac_mul_B{T}(l::LowRankOperator{T}, x)
 	for i in 1:length(l.factors)
@@ -84,5 +93,23 @@ function *{T}(iop::IndexingOperator{T}, lrop::LowRankOperator{T})
 		# warn("materializing LowRankOperator...")
 		return iop*Array(lrop)
 		# error("We only know how to multiply IndexingOperators by LowRankOperators for rank 1 LowRankOperators, for now")
+	end
+end
+
+function getindex(op::LowRankOperator, i::Int, j::Int)
+	if length(op.factors)==2
+		if op.transpose[1]==:N
+			xi = op.factors[1][i,:]
+		else
+			xi = op.factors[1][:,i]
+		end
+		if op.transpose[2]==:N
+    		yj = op.factors[2][:,j]
+		else
+			yj = op.factors[2][j,:]
+		end
+		return dot(vec(xi), vec(yj))
+	else
+		error("indexing not defined for LowRankOperator with $(length(op.factors)) factors")
 	end
 end

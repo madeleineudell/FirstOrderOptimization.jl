@@ -39,10 +39,10 @@ type BacktrackingStepSize<:StepSizeRule
 	suff_decrease::Float64
 end
 function step(s::BacktrackingStepSize, objective::Function, x0, grad_x0;
-	objval = objective(x0))
+	objval = objective(x0),
+	normgradsq = vecnorm(grad_x0)^2)
 	stepsize = s.initial_stepsize
-	normgradsq = vecnorm(grad_x0)^2
-	while objective(x0 - stepsize*grad_x0) > objval - s.suff_decrease*stepsize*normgradsq
+	while objective(x0 - stepsize*grad_x0) >= objval - s.suff_decrease*stepsize*normgradsq
 		stepsize *= s.decrease_by
 	end
 	return stepsize
@@ -57,9 +57,9 @@ type HopefulStepSize<:StepSizeRule
 	suff_decrease::Float64
 end
 function step(s::HopefulStepSize, objective::Function, x0, grad_x0;
-	objval = objective(x0))
+	objval = objective(x0),
+	normgradsq = vecnorm(grad_x0)^2)
 	stepsize = s.initial_stepsize
-	normgradsq = vecnorm(grad_x0)^2
 	while objective(x0 - stepsize*grad_x0) > objval - s.suff_decrease*stepsize*normgradsq
 		stepsize *= s.decrease_by
 	end
