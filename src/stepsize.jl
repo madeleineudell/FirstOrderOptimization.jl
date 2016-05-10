@@ -52,6 +52,7 @@ BacktrackingStepSize() = BacktrackingStepSize(1.0, .9, .5)
 # This stepsize gets bigger if we keep getting lucky and smaller otherwise
 type HopefulStepSize<:StepSizeRule
 	initial_stepsize::Float64
+	max_stepsize::Float64
 	decrease_by::Float64
 	increase_by::Float64
 	suff_decrease::Float64
@@ -71,5 +72,5 @@ function step(s::HopefulStepSize, objective::Function, x0, grad_x0;
 	end
 	return stepsize
 end
-HopefulStepSize() = HopefulStepSize(1.0, .8, 1.5, .1)
-HopefulStepSize(initial_stepsize) = HopefulStepSize(initial_stepsize, .8, 1.5, .1)
+HopefulStepSize() = HopefulStepSize(1.0, Inf, .8, 1.5, .1)
+HopefulStepSize(initial_stepsize) = HopefulStepSize(initial_stepsize, Inf, .8, 1.5, .1)
