@@ -1,4 +1,3 @@
-import Optim.optimize
 import Base: axpy!, scale!
 include("../sketch/sketch.jl")
 include("../sketch/operator.jl")
@@ -28,13 +27,13 @@ function frank_wolfe_sketched(z::AbstractArray, # starting point
 	
 	# initialize
 	if verbose @printf("%10s%12s%12s%12s%12s%12s\n", "iteration", "UB", "LB", "gap", "rel gap", "time") end
-
+	objval = objective(z)
 	t = time()
 	t0 = copy(t)
+
 	for k=1:params.maxiters
 
 		# function and gradient evaluation
-		objval = objective(z)
 		G = grad_objective(z)
 		# G = A'*g, where g is the gradient wrt the compressed variable
 		# so G.factors[1] is the compression operator A
@@ -61,9 +60,9 @@ function frank_wolfe_sketched(z::AbstractArray, # starting point
 
 		# choose step size with stepsize rule
 		# eg a = 1/k
-		a = step(params.stepsize, objective, z, z-dz; 
-			     objval=objval, 
-			     normgradsq=UB-LB)
+		a, objval = step(params.stepsize, objective, z, z-dz; 
+			        objval=objval, 
+			        normgradsq=UB-LB)
 
 		# take step
 		# z = (1-a)*z + a*dz
@@ -72,24 +71,4 @@ function frank_wolfe_sketched(z::AbstractArray, # starting point
 		cgd_update!(sketch, Delta, a)
 	end
 	return reconstruct(sketch)
-end
-
-# find a zero of f over [a, b]
-function zero(f, a, b; tol=1e-9, maxiters=1000)
-    f(a) < 0 || return a
-    f(b) > 0 || return b
-    for i=1:maxiters
-        mid = a + (b-a)/2
-        fmid = f(mid)
-        if abs(fmid) < tol
-            return mid
-        end
-        if f(mid) < 0
-            a = mid
-        else
-            b = mid
-        end
-    end
-    warn("hit maximum iterations in bisection search")
-    return (b-a)/2
 end
