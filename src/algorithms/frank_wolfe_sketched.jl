@@ -28,13 +28,14 @@ function frank_wolfe_sketched(z::AbstractArray, # starting point
 	# initialize
 	if verbose @printf("%10s%12s%12s%12s%12s%12s\n", "iteration", "UB", "LB", "gap", "rel gap", "time") end
 	objval = objective(z)
+	gwork = Array(Float64, size(z))
+
 	t = time()
 	t0 = copy(t)
-
 	for k=1:params.maxiters
 
 		# function and gradient evaluation
-		G = grad_objective(z)
+		G = grad_objective(z; g = gwork)
 		# G = A'*g, where g is the gradient wrt the compressed variable
 		# so G.factors[1] is the compression operator A
 		A = G.factors[1]
