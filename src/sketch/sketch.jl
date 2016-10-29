@@ -114,8 +114,10 @@ end
 
 function reconstruct(s::AsymmetricSketch, r::Int=s.r)
 	# Q = orth(s.Y)
-	Q,_ = qr(s.Y)
-	B = s.W / (Q's.Psi) # Q's.Psi is k x l, its pinv is l x k, so B is n x k
+	k = 2r + 1
+	l = 4r + 3
+	Q,_ = qr(s.Y[:,1:k])
+	B = s.W[:,1:l] / (Q's.Psi[:,1:l]) # Q's.Psi is k x l, its pinv is l x k, so B is n x k
 	U,s,V = mysvds(B, nsv=r) # U is n x r
 	return LowRankOperator(Q*V, spdiagm(s)*U') # reconstruction as square matrix is Q*V*diagm(s)*U'
 end
