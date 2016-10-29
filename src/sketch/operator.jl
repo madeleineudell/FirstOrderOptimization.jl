@@ -1,5 +1,9 @@
 ### operators
 
+# infelicities:
+# * LowRankOperator makes all its arguments 2d; why?
+
+
 import Base: size, *, Ac_mul_B, show, Array, getindex
 
 export LowRankOperator, IndexingOperator, *, Ac_mul_B, size, show, Array, getindex
@@ -21,7 +25,7 @@ type LowRankOperator{T<:Number}<:Operator{T}
 	factors::Array{AbstractMatrix,1}
 	transpose::Array{Symbol,1}
 end
-LowRankOperator(a...; transpose = fill(:N, length(a))) = LowRankOperator{Float64}([make_2d(ai) for ai in a], transpose)
+LowRankOperator(a...; transpose = fill(:N, length(a))) = LowRankOperator{Float64}(AbstractMatrix[make_2d(ai) for ai in a], transpose)
 # make_2d turns column vectors into matrices with 1 column
 function make_2d{T}(a::AbstractArray{T,2})
 	return a
@@ -32,13 +36,21 @@ end
 # not a deep copy
 copy(l::LowRankOperator) = LowRankOperator(copy(l.factors), copy(l.transpose))
 
-function *{T}(l::LowRankOperator{T}, x)
+# defining for specific cases just to remove ambiguity w/Base method ugh
+# could fix using invoke???
+# i can't seem to make a small problematic example, see attempt in test/ambiguous.jl
+function *{T}(l::LowRankOperator{T}, x::AbstractVector{T})
 	for i in length(l.factors):-1:1
 		x = mult_map[l.transpose[i]](l.factors[i], x)
 	end
 	return x
 end
-
+function *{T}(l::LowRankOperator{T}, x::AbstractMatrix{T})
+  for i in length(l.factors):-1:1
+		x = mult_map[l.transpose[i]](l.factors[i], x)
+	end
+	return x
+end
 # function *{T}(x, l::LowRankOperator{T})
 # 	xl = copy(l)
 # 	unshift!(xl.factors, x)
@@ -46,14 +58,20 @@ end
 # 	return xl
 # end
 
-function Ac_mul_B{T}(l::LowRankOperator{T}, x)
+function Ac_mul_B{T}(l::LowRankOperator{T}, x::AbstractArray{T,1})
+	for i in 1:length(l.factors)
+		x = tmult_map[l.transpose[i]](l.factors[i], x)
+	end
+	return x
+end
+function Ac_mul_B{T}(l::LowRankOperator{T}, x::AbstractArray{T,2})
 	for i in 1:length(l.factors)
 		x = tmult_map[l.transpose[i]](l.factors[i], x)
 	end
 	return x
 end
 function size{T}(l::LowRankOperator{T})
-	(size(l.factors[1], 1), 
+	(size(l.factors[1], 1),
 	 size(l.factors[end], t_map[l.transpose[end]] == :N ? 2 : 1)) # 2nd dimension if not transposed; 1st if transposed
 end
 
@@ -75,7 +93,11 @@ IndexingOperator(m,n,iobs) = IndexingOperator{Float64}(m,n,iobs)
 size{T}(op::IndexingOperator{T}) = (length(op.iobs), (op.m, op.n))
 
 *{T}(op::IndexingOperator{T}, X) = X[op.iobs]
-Ac_mul_B{T}(op::IndexingOperator{T}, y) = reshape(sparsevec(op.iobs, y, op.m*op.n), (op.m, op.n))
+Ac_mul_B{T}(op::IndexingOperator{T}, y::AbstractVector) = reshape(sparsevec(op.iobs, y, op.m*op.n), (op.m, op.n))
+function Ac_mul_B{T}(op::IndexingOperator{T}, y::AbstractMatrix)
+  size(y,2) == 1 || error("multiplication by IndexingOperators is only defined on vectors; got $(typeof(y))")
+  reshape(sparsevec(op.iobs, vec(y), op.m*op.n), (op.m, op.n))
+end
 
 function *{T}(iop::IndexingOperator{T}, lrop::LowRankOperator{T})
 	# we only know how to do this for rank 1 LowRankOperators, for now

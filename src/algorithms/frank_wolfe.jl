@@ -9,7 +9,7 @@ type FrankWolfeParams<:OptParams
 	stepsize::StepSizeRule
 end
 stop(p::FrankWolfeParams, UB, LB) = (UB - LB < p.abstol) || ((UB - LB)/min(abs(LB), abs(UB)) < p.reltol) ? true : false
-FrankWolfeParams(;maxiters=50, abstol=1e-4, reltol=1e-2, stepsize=DecreasingStepSize(2,1)) = 
+FrankWolfeParams(;maxiters=50, abstol=1e-4, reltol=1e-2, stepsize=DecreasingStepSize(2,1)) =
 	FrankWolfeParams(maxiters, abstol, reltol, stepsize)
 
 function frank_wolfe(x, # starting point
@@ -20,34 +20,34 @@ function frank_wolfe(x, # starting point
 	params::FrankWolfeParams = FrankWolfeParams();
 	verbose = false,
 	B = -Inf) # stopping condition
-	
+
 	# initialize
 	objval = objective(x)
 	if verbose
-		@printf("%10s%12s%12s\n", "iter", "obj", "constr")	
+		@printf("%10s%12s%12s\n", "iter", "obj", "constr")
 		@printf("%10d%12.4e%12.4e\n", 0, objval, constraint(x))
 	end
 
 	for k=1:params.maxiters
 		g = grad_objective(x)
-		
+
 		# step 1
 		# tilde_x is solution to min_{c(theta)<=delta} grad(theta_old) \dot theta
 		tilde_x = min_lin_st_constraint(g, delta)
-		
+
 		# step 2
-		
+
 		# x is solution to minimize_alpha o(a*x_old + (1-a)*tilde_x)
 		# f(a) = objective((1-a)*x + a*tilde_x)
 		# g!(a,g) = (g[1] = dot(grad_objective((1-a)*x + a*tilde_x), - x + tilde_x); g)
 		# a = optimize(f, g!, [.5], method = :l_bfgs)x, x_old = , x
-		
+
 		# fixed stepsize
 		a = step(params.stepsize)
 
 		# bisection
 		# f(a) = dot(grad_objective((1-a)*x + a*tilde_x), tilde_x - x)
-		# a = zero(f, 0, 1/sqrt(k), tol=1e-2, maxiters=10)
+		# a = find_zero(f, 0, 1/sqrt(k), tol=1e-2, maxiters=10)
 
 		x_old = copy(x)
 		x = (1-a)*x + a*tilde_x
@@ -65,24 +65,4 @@ function frank_wolfe(x, # starting point
 		stop(params, objval, B) && break
 	end
 	return x
-end
-
-# find a zero of f over [a, b]
-function zero(f, a, b; tol=1e-9, maxiters=1000)
-    f(a) < 0 || return a
-    f(b) > 0 || return b
-    for i=1:maxiters
-        mid = a + (b-a)/2
-        fmid = f(mid)
-        if abs(fmid) < tol
-            return mid
-        end
-        if f(mid) < 0
-            a = mid
-        else
-            b = mid
-        end
-    end
-    warn("hit maximum iterations in bisection search")
-    return (b-a)/2
 end

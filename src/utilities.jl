@@ -19,3 +19,23 @@ end
 # end
 
 dot(x::Array{Float64,2}, y::Array{Float64,2}) = sum(x.*y)
+
+# find a zero of f over [a, b]
+function find_zero(f, a, b; tol=1e-9, maxiters=1000)
+    f(a) < 0 || return a
+    f(b) > 0 || return b
+    for i=1:maxiters
+        mid = a + (b-a)/2
+        fmid = f(mid)
+        if abs(fmid) < tol
+            return mid
+        end
+        if f(mid) < 0
+            a = mid
+        else
+            b = mid
+        end
+    end
+    warn("hit maximum iterations in bisection search")
+    return (b-a)/2
+end

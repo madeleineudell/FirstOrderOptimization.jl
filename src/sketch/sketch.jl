@@ -1,5 +1,11 @@
 import Base: axpy!, scale!, ctranspose, dot, size
 
+# fix output of svds to make it like svd
+function mysvds(args...; kwargs...)
+  svdobj,_ = Base.svds(args...; kwargs...)
+  return svdobj.U, svdobj.S, svdobj.Vt
+end
+
 export AbstractSketch, IdentitySketch, SymmetricSketch, AsymmetricSketch,
 	additive_update!, reconstruct, dot
 
@@ -106,11 +112,11 @@ function cgd_update!(s::AsymmetricSketch, uvt, eta)
 	axpy!(eta, uvt'*s.Psi, s.W)
 end
 
-function reconstruct(s::AsymmetricSketch)
+function reconstruct(s::AsymmetricSketch, r::Int=s.r)
 	# Q = orth(s.Y)
 	Q,_ = qr(s.Y)
 	B = s.W / (Q's.Psi) # Q's.Psi is k x l, its pinv is l x k, so B is n x k
-	U,s,V,_ = svds(B, nsv=s.r) # U is n x r
+	U,s,V = mysvds(B, nsv=r) # U is n x r
 	return LowRankOperator(Q*V, spdiagm(s)*U') # reconstruction as square matrix is Q*V*diagm(s)*U'
 end
 # function reconstruct(s::AsymmetricSketch)
