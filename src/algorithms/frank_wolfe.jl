@@ -8,7 +8,7 @@ type FrankWolfeParams<:OptParams
 	reltol::AbstractFloat
 	stepsize::StepSizeRule
 end
-stop(p::FrankWolfeParams, UB, LB) = (UB - LB < p.abstol) || ((UB - LB)/min(abs(LB), abs(UB)) < p.reltol) ? true : false
+stop(p::FrankWolfeParams, UB, LB) = (UB - LB < p.abstol) || ((UB - LB)/max(abs(LB), abs(UB)) < p.reltol) ? true : false
 FrankWolfeParams(;maxiters=50, abstol=1e-4, reltol=1e-2, stepsize=DecreasingStepSize(2,1)) =
 	FrankWolfeParams(maxiters, abstol, reltol, stepsize)
 
