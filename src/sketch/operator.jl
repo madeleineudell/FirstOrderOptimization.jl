@@ -6,7 +6,10 @@
 
 import Base: size, *, Ac_mul_B, show, Array, getindex
 
-export LowRankOperator, IndexingOperator, *, Ac_mul_B, size, show, Array, getindex
+export IndexingOperator,
+       AbstractLowRankOperator, LowRankOperator,
+       IndexedLowRankOperator,
+       *, Ac_mul_B, size, show, Array, getindex
 
 
 abstract Operator{T} <: AbstractMatrix{T}
@@ -17,11 +20,32 @@ end
 
 size{T}(op::Operator{T}, i::Int) = size(op)[i]
 
+##### Indexing operators
+
+type IndexingOperator{T<:Number}<:Operator{T}
+	m
+	n
+	iobs
+end
+IndexingOperator(m,n,iobs) = IndexingOperator{Float64}(m,n,iobs)
+
+size{T}(op::IndexingOperator{T}) = (length(op.iobs), (op.m, op.n))
+
+*{T}(op::IndexingOperator{T}, X::Array{T}) = X[op.iobs]
+Ac_mul_B{T}(op::IndexingOperator{T}, y::AbstractVector) = reshape(sparsevec(op.iobs, y, op.m*op.n), (op.m, op.n))
+function Ac_mul_B{T}(op::IndexingOperator{T}, y::AbstractMatrix)
+  size(y,2) == 1 || error("multiplication by IndexingOperators is only defined on vectors; got $(typeof(y))")
+  reshape(sparsevec(op.iobs, vec(y), op.m*op.n), (op.m, op.n))
+end
+
+##### Low rank operators
+
 mult_map = Dict{Symbol, Function}(:N => *, :T => Ac_mul_B)
 tmult_map = Dict{Symbol, Function}(:T => *, :N => Ac_mul_B)
 t_map = Dict{Symbol, Function}(:T => ctranspose, :N => identity)
 
-type LowRankOperator{T<:Number}<:Operator{T}
+abstract AbstractLowRankOperator{T<:Number}<:Operator{T}
+type LowRankOperator{T<:Number}<:AbstractLowRankOperator{T}
 	factors::Array{AbstractMatrix,1}
 	transpose::Array{Symbol,1}
 end
@@ -34,7 +58,7 @@ function make_2d{T}(a::AbstractArray{T,1})
 	return reshape(a, (length(a), 1))
 end
 # not a deep copy
-copy(l::LowRankOperator) = LowRankOperator(copy(l.factors), copy(l.transpose))
+copy(l::AbstractLowRankOperator) = AbstractLowRankOperator(copy(l.factors), copy(l.transpose))
 
 # defining for specific cases just to remove ambiguity w/Base method ugh
 # could fix using invoke???
@@ -75,7 +99,7 @@ function size{T}(l::LowRankOperator{T})
 	 size(l.factors[end], t_map[l.transpose[end]] == :N ? 2 : 1)) # 2nd dimension if not transposed; 1st if transposed
 end
 
-function Array(l::LowRankOperator)
+function Array(l::AbstractLowRankOperator)
 	a = t_map[l.transpose[end]](l.factors[end])
 	for i in length(l.factors)-1:-1:1
 		a = mult_map[l.transpose[i]](l.factors[i], a)
@@ -83,20 +107,73 @@ function Array(l::LowRankOperator)
 	return a
 end
 
-type IndexingOperator{T<:Number}<:Operator{T}
-	m
-	n
-	iobs
+#### now mix IndexingOperator and LowRankOperator
+
+type IndexedLowRankOperator{T<:Number}<:AbstractLowRankOperator{T}
+	factors::Tuple{IndexingOperator{T},AbstractVector{T}}
+	transpose::Array{Symbol,1}
 end
-IndexingOperator(m,n,iobs) = IndexingOperator{Float64}(m,n,iobs)
-
-size{T}(op::IndexingOperator{T}) = (length(op.iobs), (op.m, op.n))
-
-*{T}(op::IndexingOperator{T}, X) = X[op.iobs]
-Ac_mul_B{T}(op::IndexingOperator{T}, y::AbstractVector) = reshape(sparsevec(op.iobs, y, op.m*op.n), (op.m, op.n))
-function Ac_mul_B{T}(op::IndexingOperator{T}, y::AbstractMatrix)
-  size(y,2) == 1 || error("multiplication by IndexingOperators is only defined on vectors; got $(typeof(y))")
-  reshape(sparsevec(op.iobs, vec(y), op.m*op.n), (op.m, op.n))
+IndexedLowRankOperator(a...) = IndexedLowRankOperator{Float64}((a...), [:T, :N])
+function A_mul_B!{T}(u::AbstractArray{T,1}, l::IndexedLowRankOperator{T}, v::AbstractVector{T})
+  @assert(length(u)==l.factors[1].m)
+  @assert(length(v)==l.factors[1].n)
+	iobs = l.factors[1].iobs
+  js = round(Int,floor((iobs-1)/l.factors[1].m)+1)
+  is = (iobs-1)%l.factors[1].m+1
+  for ii in length(iobs)
+    u[is[ii]] += l.factors[2][ii]*v[js[ii]]
+  end
+	return u
+end
+*{T}(l::IndexedLowRankOperator{T}, v::AbstractVector{T}) =
+    A_mul_B!(zeros(l.factors[1].m), l, v)
+function A_mul_B!{T}(v::AbstractMatrix{T}, l::IndexedLowRankOperator{T}, u::AbstractMatrix{T})
+    for i=1:size(u,2)
+      A_mul_B!(view(v,:,i), l, view(u,:,i))
+    end
+    v
+end
+*{T}(l::IndexedLowRankOperator{T}, v::AbstractMatrix{T}) =
+    A_mul_B!(zeros(l.factors[1].m, size(v,2)), l, v)
+function Ac_mul_B!{T}(v::AbstractArray{T,1}, l::IndexedLowRankOperator{T}, u::AbstractArray{T,1})
+  @assert(length(u)==l.factors[1].m)
+  @assert(length(v)==l.factors[1].n)
+	iobs = l.factors[1].iobs
+  js = round(Int,floor((iobs-1)/l.factors[1].m)+1)
+  is = (iobs-1)%l.factors[1].m+1
+  v = zeros(l.factors[1].n)
+  for ii in length(iobs)
+    v[js[ii]] += l.factors[2][ii]*u[is[ii]]
+  end
+	return v
+end
+Ac_mul_B{T}(l::IndexedLowRankOperator{T}, u::AbstractVector{T}) =
+    Ac_mul_B!(zeros(l.factors[1].n), l, u)
+function Ac_mul_B!{T}(v::AbstractMatrix{T}, l::IndexedLowRankOperator{T}, u::AbstractMatrix{T})
+    for i=1:size(u,2)
+      Ac_mul_B!(view(v,:,i), l, view(u,:,i))
+    end
+    v
+end
+Ac_mul_B{T}(l::IndexedLowRankOperator{T}, u::AbstractMatrix{T}) =
+    Ac_mul_B!(zeros(l.factors[1].n, size(u,2)), l, u)
+function size{T}(l::IndexedLowRankOperator{T})
+  size(l.factors[1])[2]
+end
+# not sure why this is needed for svds
+function getindex(l::IndexedLowRankOperator,i::Int,j::Int)
+  idx = findin(l.factors[1].iobs, i+l.factors[1].m*(j-1))
+  if length(idx)==0
+    return 0
+  else
+    return sum(l.factors[2][idx])
+  end
+end
+function Array(l::IndexedLowRankOperator)
+  iobs = l.factors[1].iobs
+  js = round(Int,floor((iobs-1)/l.factors[1].m)+1)
+  is = (iobs-1)%l.factors[1].m+1
+  return sparse(is, js, l.factors[2], l.factors[1].m, l.factors[1].n)
 end
 
 function *{T}(iop::IndexingOperator{T}, lrop::LowRankOperator{T})
@@ -112,11 +189,12 @@ function *{T}(iop::IndexingOperator{T}, lrop::LowRankOperator{T})
 		end
 		return y
 	else
-		# warn("materializing LowRankOperator...")
+		warn("materializing LowRankOperator...")
 		return iop*Array(lrop)
 		# error("We only know how to multiply IndexingOperators by LowRankOperators for rank 1 LowRankOperators, for now")
 	end
 end
+
 
 function getindex(op::LowRankOperator, i::Int, j::Int)
 	if length(op.factors)==2

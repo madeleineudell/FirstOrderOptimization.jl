@@ -13,4 +13,11 @@ io = IndexingOperator(5, 4, iobs)
 io*rand(5,4)
 io'*rand(length(iobs))
 
-svds(io, nsv=1)
+# svds(io, nsv=1)
+
+ilr = IndexedLowRankOperator(io,rand(length(iobs)))
+size(ilr)==(5,4)
+ilr*rand(4)
+ilr'*rand(5)
+
+svds(ilr, nsv=1)
