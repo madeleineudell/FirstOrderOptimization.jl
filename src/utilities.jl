@@ -1,11 +1,17 @@
 import IterativeSolvers: svdl
 import Base: svd, dot
 
+# fix output of svds to make it like svd
+function mysvds(args...; kwargs...)
+  svdobj,_ = Base.svds(args...; kwargs...)
+  return svdobj.U, svdobj.S, svdobj.Vt
+end
+
 function svd(A::AbstractArray, k::Int)
 	if k==0 || k>=min(size(A)...)
 		return svd(A)
 	else
-		u,s,v,_ = svds(A, nsv = k)
+		u,s,v = mysvds(A, nsv = k)
 		return u, s, v
 		# inaccurate when k=1
 		# usv, pf = svdl(A, k, vecs=:both)

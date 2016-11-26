@@ -21,3 +21,18 @@ ilr*rand(4)
 ilr'*rand(5)
 
 svds(ilr, nsv=1)
+
+# test thin update
+
+u,s,v = FirstOrderOptimization.svd(rand(4,5), 2)
+A = LowRankOperator(u,spdiagm(s),v, transpose=(:N,:N,:T))
+Delta = LowRankOperator(rand(4,1), rand(5,1), transpose=(:N,:T))
+Aup = Array(A) + Array(Delta)
+thin_update!(A,Delta,1.)
+@assert norm(Array(A) - Aup) <= 1e-10
+
+# test dot between sparse and low rank (svd) operator
+
+m,n = size(A)
+G = sprand(m,n,.3)
+@assert dot(G,A) == dot(full(G),Array(A))

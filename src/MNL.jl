@@ -1,4 +1,4 @@
-import Base: factor, +, -, *, size, copy
+import Base: factor, +, -, *, size, copy, norm
 
 export MNLdata,
 	negloglik, grad_negloglik,
@@ -22,7 +22,7 @@ end
 
 # The idea is that Theta::RectangularParam, U::FactoredParam,
 # and [W1 Theta; Theta' W2] = U U' \succeq 0 at the solution
-# The minimizer Theta of L(Theta; data) + lambda*\|Theta\|_* 
+# The minimizer Theta of L(Theta; data) + lambda*\|Theta\|_*
 # and the minimizer U of L((U U')[1:m, m+1:m+n]) + lambda/2*\|U\|_F^2
 # satisfy (U U')[1:m, m+1:m+n] = Theta
 
@@ -42,7 +42,7 @@ function factor(Theta::RectangularParam; k = min(size(Theta)...))
 	u,s,v = svd(Theta, k)
 	k = min(k, sum(s .> 1e-12))
 	return FactoredParam([u[:,1:k]*diagm(sqrt(s[1:k]));
-					   v[:,1:k]*diagm(sqrt(s[1:k]))], 
+					   v[:,1:k]*diagm(sqrt(s[1:k]))],
 					   m, n)
 end
 
@@ -92,8 +92,8 @@ function grad_negloglik(Theta::RectangularParam, data::MNLdata)
 		DTheta[it,jt] += 1
 		# and for j \in S, j \ne jt,
 		# DTheta -= 1/sum_{j' \in S} exp(Theta[it,j] - Theta[it,j'])
-		# it's ok if this over/underflows, I think: 
-		# the contribution of one observation to one entry of the gradient 
+		# it's ok if this over/underflows, I think:
+		# the contribution of one observation to one entry of the gradient
 		# is always between -1 and 0
 		sumexp = sum(map(j->exp(-Theta[it,j]), St))
 		for j in St
@@ -128,7 +128,7 @@ end
 
 # prox_nucnorm(T, alpha) solves minimize_X (||X||_* + 1/(2*alpha)||X-T||^2)
 # via soft-thresholding the singular values
-function prox_nucnorm(Theta::RectangularParam, 
+function prox_nucnorm(Theta::RectangularParam,
 	alpha::AbstractFloat;
 	k = 10, # k estimates the number of singular values that will be greater than alpha
 	kpp = 10) # how much to increment k if we're wrong
@@ -144,7 +144,7 @@ end
 function min_lin_st_nucnorm(G, delta)
 	# solution to min_{nucnorm(x)<=delta} G \dot x
 	u,s,v = svd(G, 1)
-	x = -delta*u*v'	
+	x = -delta*u*v'
 	return x
 end
 
@@ -154,7 +154,7 @@ end
 
 function grad_negloglik(U::FactoredParam, data::MNLdata)
 	G = grad_negloglik(rectangular_part(U), data)
-	# gradient is [0_m G; G' 0_n] * U 
+	# gradient is [0_m G; G' 0_n] * U
 	# return FactoredParam([G*top(U); G'*bottom(U)], size(U)...)
 	return FactoredParam([G*bottom(U); G'*top(U)], size(U)...)
 end
@@ -175,7 +175,7 @@ function initialize_dropping_convexity(grad_objective, zeroparam, k::Int=0)
 		return psd_grad_0 / normalization
 	else # return initialization for U
 		# Theta = u[:,1:k]*spdiagm(max(s[1:k],0))*v[:,1:k]'
-		U = [u[:,1:k]*spdiagm(sqrt(max(s[1:k],0))); 
+		U = [u[:,1:k]*spdiagm(sqrt(max(s[1:k],0)));
 			 v[:,1:k]*spdiagm(sqrt(max(s[1:k],0)))]
 		return FactoredParam(U / sqrt(normalization), size(zeroparam)...)
 	end

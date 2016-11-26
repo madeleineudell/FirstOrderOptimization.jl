@@ -1,12 +1,6 @@
 import Base: axpy!, scale!, ctranspose, dot, size
 import ArrayViews: view
 
-# fix output of svds to make it like svd
-function mysvds(args...; kwargs...)
-  svdobj,_ = Base.svds(args...; kwargs...)
-  return svdobj.U, svdobj.S, svdobj.Vt
-end
-
 export AbstractSketch, IdentitySketch, SymmetricSketch, AsymmetricSketch,
 	additive_update!, reconstruct, dot
 

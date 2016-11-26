@@ -5,7 +5,7 @@ include("MNL.jl")
 ### Generate data
 
 # make it deterministic
-srand(10) 
+srand(10)
 
 m, n, k = 100, 100, 3
 Theta = randn(m, k) * randn(k, n)

@@ -4,12 +4,13 @@
 # * LowRankOperator makes all its arguments 2d; why?
 
 
-import Base: size, *, Ac_mul_B, show, Array, getindex
+import Base: size, *, Ac_mul_B, show, Array, getindex, dot
 
 export IndexingOperator,
        AbstractLowRankOperator, LowRankOperator,
        IndexedLowRankOperator,
-       *, Ac_mul_B, size, show, Array, getindex
+       *, Ac_mul_B, size, show, Array, getindex,
+       thin_update!
 
 
 abstract Operator{T} <: AbstractMatrix{T}
@@ -112,20 +113,20 @@ end
 
 function is_svd(X::LowRankOperator)
   @assert(length(X.factors)==3)
-  @assert X.transpose = (:N, :N, :T)
+  @assert(X.transpose == (:N, :N, :T))
   # X.factors[2] is diagonal
   # X.factors[1] and [3] are orthogonal
 end
 function is_rank_1(X::LowRankOperator)
   @assert(length(X.factors)==2)
-  @assert X.transpose = (:N, :T)
+  @assert(X.transpose == (:N, :T))
 end
 
 # compute (1-a)*X + a*Delta
 # update the factorization of X using idea from
 # Brand 2006 "Fast Low-Rank Modifications of the Thin SVD"
-function thin_update!(X::LowRankOperator, Delta::LowRankOperator, a::Float64)
-  @assert is_svd(X) && is_rank_1(Delta)
+function thin_update!{T<:Number}(X::LowRankOperator{T}, Delta::LowRankOperator{T}, a::T=1.0)
+  # @assert is_svd(X) && is_rank_1(Delta)
   # assume that the factors of X form an SVD factorization
   U, Sigma, V = X.factors
   r = size(Sigma,1)
@@ -150,9 +151,7 @@ function thin_update!(X::LowRankOperator, Delta::LowRankOperator, a::Float64)
 
   Up = [U P]*Uk
   Vp = [V Q]*Vk
-  X.factors[1] = Up
-  X.factors[2] = diagm(Sk)
-  X.factors[3] = Vp
+  X.factors = (Up, spdiagm(Sk), Vp)
   return X
 end
 
@@ -262,7 +261,27 @@ function getindex(op::LowRankOperator, i::Int, j::Int)
 		error("indexing not defined for LowRankOperator with $(length(op.factors)) factors")
 	end
 end
-``
 
 *(a::Number, o::AbstractLowRankOperator) = (scale!(o.factors[end], a); o)
 *(o::AbstractLowRankOperator, a::Number) = *(a,o)
+
+function dot(A::SparseMatrixCSC, lrop::LowRankOperator)
+  # @assert is_svd(lrop)
+  # @assert size(A) == size(lrop)
+  # construct U, V so that U*V = lrop
+  U = lrop.factors[1]
+  n,r = size(lrop.factors[3])
+  V = Array(Float64,r,n)
+  for i=1:r
+    V[i,:] = lrop.factors[2].nzval[i] * lrop.factors[3][:,i]
+  end
+  out = 0
+  m,n = size(A)
+  for j=1:n
+    for iobs = A.colptr[j]:(A.colptr[j+1]-1)
+      i = A.rowval[iobs]
+      out += dot(U[i,:],V[:,j])*A.nzval[iobs]
+    end
+  end
+  return out
+end
