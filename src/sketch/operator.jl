@@ -46,10 +46,14 @@ t_map = Dict{Symbol, Function}(:T => ctranspose, :N => identity)
 
 abstract AbstractLowRankOperator{T<:Number}<:Operator{T}
 type LowRankOperator{T<:Number}<:AbstractLowRankOperator{T}
-	factors::Array{AbstractMatrix,1}
-	transpose::Array{Symbol,1}
+	factors::Tuple{Vararg{AbstractMatrix{T}}}
+	transpose::Tuple{Vararg{Symbol}}
 end
-LowRankOperator(a...; transpose = fill(:N, length(a))) = LowRankOperator{Float64}(AbstractMatrix[make_2d(ai) for ai in a], transpose)
+function LowRankOperator(a::AbstractArray...; transpose = tuple(fill(:N, length(a))...))
+  t = tuple([make_2d(ai) for ai in a]...)
+  l = LowRankOperator(t, transpose)
+  return l
+end
 # make_2d turns column vectors into matrices with 1 column
 function make_2d{T}(a::AbstractArray{T,2})
 	return a
@@ -57,8 +61,7 @@ end
 function make_2d{T}(a::AbstractArray{T,1})
 	return reshape(a, (length(a), 1))
 end
-# not a deep copy
-copy(l::AbstractLowRankOperator) = AbstractLowRankOperator(copy(l.factors), copy(l.transpose))
+copy(l::AbstractLowRankOperator) = AbstractLowRankOperator(deepcopy(l.factors), deepcopy(l.transpose))
 
 # defining for specific cases just to remove ambiguity w/Base method ugh
 # could fix using invoke???
@@ -107,13 +110,59 @@ function Array(l::AbstractLowRankOperator)
 	return a
 end
 
+function is_svd(X::LowRankOperator)
+  @assert(length(X.factors)==3)
+  @assert X.transpose = (:N, :N, :T)
+  # X.factors[2] is diagonal
+  # X.factors[1] and [3] are orthogonal
+end
+function is_rank_1(X::LowRankOperator)
+  @assert(length(X.factors)==2)
+  @assert X.transpose = (:N, :T)
+end
+
+# compute (1-a)*X + a*Delta
+# update the factorization of X using idea from
+# Brand 2006 "Fast Low-Rank Modifications of the Thin SVD"
+function thin_update!(X::LowRankOperator, Delta::LowRankOperator, a::Float64)
+  @assert is_svd(X) && is_rank_1(Delta)
+  # assume that the factors of X form an SVD factorization
+  U, Sigma, V = X.factors
+  r = size(Sigma,1)
+  # and that Delta is rank 1
+  a,b = Delta.factors
+
+  # eqn 6
+  m = U'*a
+  p = a-U*m
+  ra = norm(p)
+  P = p/ra
+
+  # eqn 7
+  n = V'*b
+  q = b-V*n
+  rb = norm(q)
+  Q = q/rb
+
+  # eqn 8 - can be made more efficient exploiting diag + rank 1
+  K = [Sigma zeros(r); zeros(1,r) 0] + [m; ra]*[n' rb]
+  Uk,Sk,Vk = svd(K)
+
+  Up = [U P]*Uk
+  Vp = [V Q]*Vk
+  X.factors[1] = Up
+  X.factors[2] = diagm(Sk)
+  X.factors[3] = Vp
+  return X
+end
+
 #### now mix IndexingOperator and LowRankOperator
 
 type IndexedLowRankOperator{T<:Number}<:AbstractLowRankOperator{T}
 	factors::Tuple{IndexingOperator{T},AbstractVector{T}}
-	transpose::Array{Symbol,1}
+  transpose::Tuple{Vararg{Symbol}}
 end
-IndexedLowRankOperator(a...) = IndexedLowRankOperator{Float64}((a...), [:T, :N])
+IndexedLowRankOperator(a...) = IndexedLowRankOperator{Float64}((a...), (:T, :N))
 function A_mul_B!{T}(u::AbstractArray{T,1}, l::IndexedLowRankOperator{T}, v::AbstractVector{T})
   @assert(length(u)==l.factors[1].m)
   @assert(length(v)==l.factors[1].n)
@@ -204,7 +253,7 @@ function getindex(op::LowRankOperator, i::Int, j::Int)
 			xi = op.factors[1][:,i]
 		end
 		if op.transpose[2]==:N
-    		yj = op.factors[2][:,j]
+    	yj = op.factors[2][:,j]
 		else
 			yj = op.factors[2][j,:]
 		end
@@ -213,3 +262,7 @@ function getindex(op::LowRankOperator, i::Int, j::Int)
 		error("indexing not defined for LowRankOperator with $(length(op.factors)) factors")
 	end
 end
+``
+
+*(a::Number, o::AbstractLowRankOperator) = (scale!(o.factors[end], a); o)
+*(o::AbstractLowRankOperator, a::Number) = *(a,o)
