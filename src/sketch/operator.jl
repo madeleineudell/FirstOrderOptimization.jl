@@ -1,7 +1,7 @@
 ### operators
 
 # infelicities:
-# * LowRankOperator makes all its arguments 2d; why?
+# * LowRankOperator makes all its arguments 2d; does it need to?
 
 
 import Base: size, *, Ac_mul_B, show, Array, getindex, dot
@@ -11,7 +11,6 @@ export IndexingOperator,
        IndexedLowRankOperator,
        *, Ac_mul_B, size, show, Array, getindex,
        thin_update!
-
 
 abstract Operator{T} <: AbstractMatrix{T}
 
@@ -54,6 +53,9 @@ function LowRankOperator(a::AbstractArray...; transpose = tuple(fill(:N, length(
   t = tuple([make_2d(ai) for ai in a]...)
   l = LowRankOperator(t, transpose)
   return l
+end
+function LowRankOperator{T<:Number}(t::Tuple{Vararg{AbstractMatrix{T}}}; transpose = tuple(fill(:N, length(a))...))
+  return LowRankOperator(t,transpose)
 end
 # make_2d turns column vectors into matrices with 1 column
 function make_2d{T}(a::AbstractArray{T,2})
@@ -112,21 +114,28 @@ function Array(l::AbstractLowRankOperator)
 end
 
 function is_svd(X::LowRankOperator)
-  @assert(length(X.factors)==3)
-  @assert(X.transpose == (:N, :N, :T))
-  # X.factors[2] is diagonal
-  # X.factors[1] and [3] are orthogonal
+  if (length(X.factors)==3) && (X.transpose == (:N, :N, :T))
+    # X.factors[2] is diagonal
+    # X.factors[1] and [3] are orthogonal
+    return true
+  else
+    return false
+  end
 end
 function is_rank_1(X::LowRankOperator)
-  @assert(length(X.factors)==2)
-  @assert(X.transpose == (:N, :T))
+  if (length(X.factors)==2) && (X.transpose == (:N, :T))
+    return true
+  else
+    return false
+  end
 end
 
 # compute (1-a)*X + a*Delta
 # update the factorization of X using idea from
 # Brand 2006 "Fast Low-Rank Modifications of the Thin SVD"
 function thin_update!{T<:Number}(X::LowRankOperator{T}, Delta::LowRankOperator{T}, a::T=1.0)
-  # @assert is_svd(X) && is_rank_1(Delta)
+  @assert is_svd(X)
+  @assert is_rank_1(Delta)
   # assume that the factors of X form an SVD factorization
   U, Sigma, V = X.factors
   r = size(Sigma,1)
@@ -243,7 +252,6 @@ function *{T}(iop::IndexingOperator{T}, lrop::LowRankOperator{T})
 	end
 end
 
-
 function getindex(op::LowRankOperator, i::Int, j::Int)
 	if length(op.factors)==2
 		if op.transpose[1]==:N
@@ -257,7 +265,9 @@ function getindex(op::LowRankOperator, i::Int, j::Int)
 			yj = op.factors[2][j,:]
 		end
 		return dot(vec(xi), vec(yj))
-	else
+	elseif is_svd(op)
+    return dot(op.factors[1][i,:], op.factors[2]*op.factors[3][j,:])
+  else
 		error("indexing not defined for LowRankOperator with $(length(op.factors)) factors")
 	end
 end

@@ -35,4 +35,4 @@ thin_update!(A,Delta,1.)
 
 m,n = size(A)
 G = sprand(m,n,.3)
-@assert dot(G,A) == dot(full(G),Array(A))
+@assert norm(dot(G,A) - dot(full(G),Array(A))) <= 1e-10
