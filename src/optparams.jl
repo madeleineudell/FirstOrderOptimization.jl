@@ -10,7 +10,8 @@ type SimpleParams<:OptParams
 	stepsizerule::StepSizeRule
 	maxiters::Int
 end
+SimpleParams() = SimpleParams(ConstantStepSize(), 10)
 
 ## Default stopping rule (stop if decrease is too small)
-stop(params::OptParams, objval, oldobjval, args...; kwargs...) = 
+stop(params::OptParams, objval, oldobjval, args...; kwargs...) =
 	stop(params.stepsizerule) && (oldobjval - objval)/objval < 1e-6 ? true : false

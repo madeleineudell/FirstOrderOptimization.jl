@@ -33,7 +33,6 @@ function frank_wolfe_thin(X::LowRankOperator, # starting point
 		# function and gradient evaluation
 		objval = objective(X)
 		G = grad_objective(X)
-		@show vecnorm(G)
 		# G = A'*g, where g is the gradient wrt the compressed variable
 		# so G.factors[1] is the compression operator A
 
@@ -41,7 +40,6 @@ function frank_wolfe_thin(X::LowRankOperator, # starting point
 		# Delta is solution to min_{c(X)<=alpha} dot(G, X)
 		# linearized_obj is dot(G, Delta)
 		Delta, linearized_obj = min_lin_st_constraint(G, alpha)
-		@show vecnorm(Array(Delta)), linearized_obj
 
 		# check stopping condition
 		UB = min(UB, objval)
@@ -63,9 +61,7 @@ function frank_wolfe_thin(X::LowRankOperator, # starting point
 
 		# take step
 		# X = (1-a)*X + a*Delta
-		@show vecnorm(Array(X))
-		X = thin_update!(X, Delta, a)
-		@show vecnorm(Array(X))
+		X = thin_update!(X, Delta, 1-a, a)
 	end
 	return X
 end

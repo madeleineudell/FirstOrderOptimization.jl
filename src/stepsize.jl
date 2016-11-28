@@ -2,8 +2,8 @@
 
 import Base: step, vecnorm
 
-export StepSizeRule, 
-	ConstantStepSize, BacktrackingStepSize, 
+export StepSizeRule,
+	ConstantStepSize, BacktrackingStepSize,
 	HopefulStepSize, DecreasingStepSize,
 	step
 

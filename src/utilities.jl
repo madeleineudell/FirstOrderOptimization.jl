@@ -1,5 +1,7 @@
 import IterativeSolvers: svdl
-import Base: svd, dot
+import Base: svd, dot, copy
+
+export copy
 
 # fix output of svds to make it like svd
 function mysvds(args...; kwargs...)
@@ -44,4 +46,20 @@ function find_zero(f, a, b; tol=1e-9, maxiters=1000)
     end
     warn("hit maximum iterations in bisection search")
     return (b-a)/2
+end
+
+function copy(p::OptParams)
+  newp = typeof(p)()
+  for field in fieldnames(p)
+    setfield!(newp, field, copy(getfield(p, field)))
+  end
+  newp
+end
+
+function copy(p::StepSizeRule)
+  newp = typeof(p)()
+  for field in fieldnames(p)
+    setfield!(newp, field, copy(getfield(p, field)))
+  end
+  newp
 end

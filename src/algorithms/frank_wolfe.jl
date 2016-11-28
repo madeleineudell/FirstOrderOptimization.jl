@@ -12,10 +12,10 @@ stop(p::FrankWolfeParams, UB, LB) = (UB - LB < p.abstol) || ((UB - LB)/max(abs(L
 FrankWolfeParams(;maxiters=50, abstol=1e-4, reltol=1e-2, stepsize=DecreasingStepSize(2,1)) =
 	FrankWolfeParams(maxiters, abstol, reltol, stepsize)
 
-function frank_wolfe(x, # starting point
-	delta::AbstractFloat, # bound on constraint function
+function frank_wolfe(x::Array{Float64,2}, # starting point
 	objective, grad_objective,
 	constraint, # evaluates constraint
+	delta::AbstractFloat, # bound on constraint function
 	min_lin_st_constraint, # solves min_{c(x)<=delta} g \dot x (as a function of delta and g)
 	params::FrankWolfeParams = FrankWolfeParams();
 	verbose = false,

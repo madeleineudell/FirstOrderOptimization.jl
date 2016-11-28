@@ -130,17 +130,21 @@ function is_rank_1(X::LowRankOperator)
   end
 end
 
-# compute (1-a)*X + a*Delta
+# compute alpha*X + (1-alpha)*Delta
 # update the factorization of X using idea from
 # Brand 2006 "Fast Low-Rank Modifications of the Thin SVD"
-function thin_update!{T<:Number}(X::LowRankOperator{T}, Delta::LowRankOperator{T}, a::T=1.0)
-  @assert is_svd(X)
-  @assert is_rank_1(Delta)
+function thin_update!{T<:Number}(X::LowRankOperator{T}, Delta::LowRankOperator{T}, alpha::T=1.0, beta::T=1.0)
   # assume that the factors of X form an SVD factorization
-  U, Sigma, V = X.factors
-  r = size(Sigma,1)
+  @assert is_svd(X)
   # and that Delta is rank 1
+  @assert is_rank_1(Delta)
+
+  # scale X and Delta so we just need to compute U * Sigma * V' + a * b'
+  U, Sigma, V = X.factors
+  Sigma *= alpha
+  r = size(Sigma,1)
   a,b = Delta.factors
+  a *= beta
 
   # eqn 6
   m = U'*a
